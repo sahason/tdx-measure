@@ -113,7 +113,7 @@ impl ImageConfig {
     pub fn cpu_count(&self) -> Result<u8> {
         let boot_config = self.boot_config.as_ref()
             .ok_or_else(|| anyhow!("Boot config is required"))?;
-        
+
         Ok(boot_config.cpus)
     }
 
@@ -121,7 +121,7 @@ impl ImageConfig {
     pub fn memory_size(&self) -> Result<u64> {
         let boot_config = self.boot_config.as_ref()
             .ok_or_else(|| anyhow!("Boot config is required"))?;
-        
+
         parse_memory_size(&boot_config.memory)
     }
 }

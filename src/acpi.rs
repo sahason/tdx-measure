@@ -11,7 +11,7 @@ pub struct Tables {
 }
 
 impl Machine<'_> {
-    
+
     pub fn build_tables(&self) -> Result<Tables> {
         let tables = read_file_data(self.acpi_tables)?;
         let rsdp = read_file_data(self.rsdp)?;

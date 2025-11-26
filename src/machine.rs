@@ -38,7 +38,7 @@ impl Machine<'_> {
 
         let rtmr1;
         let rtmr2;
-        
+
         // Direct boot
         if self.direct_boot {
             let kernel_path = self.kernel.ok_or_else(|| anyhow::anyhow!("Kernel path required for direct boot"))?;
@@ -82,7 +82,7 @@ impl Machine<'_> {
     pub fn measure_runtime(&self) -> Result<TdxMeasurements> {
         let rtmr1;
         let rtmr2;
-        
+
         // Direct boot
         if self.direct_boot {
             let kernel_path = self.kernel.ok_or_else(|| anyhow::anyhow!("Kernel path required for direct boot"))?;

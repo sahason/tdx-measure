@@ -37,13 +37,13 @@ def parse_boot_order(boot_order_data):
     """Parse BootOrder variable to extract boot entry numbers"""
     if len(boot_order_data) % 2 != 0:
         raise ValueError("BootOrder data length must be even (array of UINT16s)")
-    
+
     boot_entries = []
     for i in range(0, len(boot_order_data), 2):
         # Extract UINT16 in little-endian format
         entry_num = struct.unpack('<H', boot_order_data[i:i+2])[0]
         boot_entries.append(entry_num)
-    
+
     return boot_entries
 
 def extract_mok_variable(var_name, output_file):
@@ -117,9 +117,9 @@ def main():
         with open(boot_order_file, 'rb') as f:
             boot_order_data = f.read()
         boot_entries = parse_boot_order(boot_order_data)
-    
+
     print(f"\nExtracting Boot variables for entries: {[f'Boot{entry:04X}' for entry in boot_entries]}")
-    
+
     # Extract boot variables dynamically based on BootOrder
     extracted_variables = [boot_order_var]  # BootOrder is always extracted
     for boot_entry_num in boot_entries:
@@ -150,21 +150,21 @@ def main():
 
     print("\nDone!")
     print("\nFiles created:")
-    
+
     # Show EFI variable files
     for var_name in extracted_variables:
         output_file = f"{var_name}.bin"
         if os.path.exists(output_file):
             size = os.path.getsize(output_file)
             print(f"  {output_file}: {size} bytes")
-    
+
     # Show MOK variable files
     for var_name in mok_variables:
         output_file = f"{var_name}.bin"
         if os.path.exists(output_file):
             size = os.path.getsize(output_file)
             print(f"  {output_file}: {size} bytes")
-    
+
     # Show ACPI files
     for _, output_file, _ in acpi_extractions:
         if os.path.exists(output_file):

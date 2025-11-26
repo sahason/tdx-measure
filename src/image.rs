@@ -3,7 +3,7 @@ use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use log::debug; 
+use log::debug;
 use crate::util::utf16_encode;
 
 /// Helper function to download a file using guestfish
@@ -12,10 +12,10 @@ fn guestfish_download(qcow2_path: &str, source_path: &str) -> Result<Vec<u8>> {
     // Create a temporary directory for the extracted files
     let temp_dir = std::env::temp_dir().join("tdx_bootloader_extract");
     std::fs::create_dir_all(&temp_dir)?;
-    
+
     // Create a temporary file path
     let dest_path = temp_dir.join("extracted_file");
-    
+
     // Download the file using guestfish
     let output = Command::new("guestfish")
         .args(&[
@@ -24,7 +24,7 @@ fn guestfish_download(qcow2_path: &str, source_path: &str) -> Result<Vec<u8>> {
         ])
         .output()
         .context(format!("Failed to extract {}", source_path))?;
-    
+
     if !output.status.success() {
         bail!("Failed to extract {}: {}", source_path, String::from_utf8_lossy(&output.stderr));
     }
@@ -32,10 +32,10 @@ fn guestfish_download(qcow2_path: &str, source_path: &str) -> Result<Vec<u8>> {
     // Read the extracted file
     let data = std::fs::read(&dest_path)
         .context(format!("Failed to read extracted {}", dest_path.to_str().unwrap()))?;
-    
+
     // Cleanup
     let _ = std::fs::remove_dir_all(&temp_dir);
-    
+
     Ok(data)
 }
 
@@ -50,36 +50,36 @@ fn extract_gpt_event_data(qcow2_path: &str) -> Result<Vec<u8>> {
         ])
         .output()
         .context("Failed to extract GPT header")?;
-    
+
     if !output.status.success() {
         bail!("Failed to extract GPT header: {}", String::from_utf8_lossy(&output.stderr));
     }
-    
+
     let gpt_header = output.stdout;
-    
+
     // Parse GPT header
     if gpt_header.len() < 92 {
         bail!("GPT header too short");
     }
-    
+
     // Check GPT signature
     if &gpt_header[0..8] != b"EFI PART" {
         bail!("Invalid GPT signature");
     }
-    
+
     // Read partition entry info from GPT header
     let partition_entry_lba = u64::from_le_bytes(gpt_header[72..80].try_into().unwrap());
     let num_entries = u32::from_le_bytes(gpt_header[80..84].try_into().unwrap()) as usize;
     let entry_size = u32::from_le_bytes(gpt_header[84..88].try_into().unwrap()) as usize;
-    
+
     // Calculate how many sectors we need to read for all partition entries
     let entries_size = num_entries * entry_size;
     let sectors_needed = (entries_size + 511) / 512; // Round up to sector boundary
-    
+
     // Extract partition entries
     let entries_offset = partition_entry_lba * 512;
     let entries_length = sectors_needed * 512;
-    
+
     let output = Command::new("guestfish")
         .args(&[
             "--ro", "-a", qcow2_path,
@@ -88,13 +88,13 @@ fn extract_gpt_event_data(qcow2_path: &str) -> Result<Vec<u8>> {
         ])
         .output()
         .context("Failed to extract GPT entries")?;
-    
+
     if !output.status.success() {
         bail!("Failed to extract GPT entries: {}", String::from_utf8_lossy(&output.stderr));
     }
-    
+
     let all_entries = output.stdout;
-    
+
     // Filter valid partition entries (non-zero PartitionTypeGUID)
     let mut valid_entries = Vec::new();
     for i in 0..num_entries {
@@ -102,35 +102,35 @@ fn extract_gpt_event_data(qcow2_path: &str) -> Result<Vec<u8>> {
         if entry_offset + entry_size > all_entries.len() {
             break;
         }
-        
+
         let entry = &all_entries[entry_offset..entry_offset + entry_size];
-        
+
         // Check if PartitionTypeGUID is non-zero (first 16 bytes)
         let is_valid = !entry[0..16].iter().all(|&b| b == 0);
-        
+
         if is_valid {
             valid_entries.push(entry.to_vec());
         }
     }
-    
+
     // Build the EFI_GPT_DATA structure:
     // 1. GPT Header (92 bytes)
     // 2. NumberOfPartitions (8 bytes as UINT64)
     // 3. Valid partition entries (128 bytes each)
     let mut gpt_event_data = Vec::new();
-    
+
     // Add GPT header (92 bytes)
     gpt_event_data.extend_from_slice(&gpt_header[0..92]);
-    
+
     // Add NumberOfPartitions as 64-bit value
     let num_valid_partitions = valid_entries.len() as u64;
     gpt_event_data.extend_from_slice(&num_valid_partitions.to_le_bytes());
-    
+
     // Add valid partition entries
     for entry in valid_entries {
         gpt_event_data.extend_from_slice(&entry);
     }
-    
+
     Ok(gpt_event_data)
 }
 
@@ -185,7 +185,7 @@ pub fn measure_rtmr1_from_qcow2(qcow2_path: &str) -> Result<Vec<u8>> {
     let gpt_hash = measure_sha384(&gpt_data);
     let shim_hash = authenticode_sha384_hash(&shim_data).context("Failed to compute shim hash")?;
     let grub_hash = authenticode_sha384_hash(&grub_data).context("Failed to compute grub hash")?;
-    
+
     // Compute RTMR1 log
     let rtmr1_log = vec![
         measure_sha384(b"Calling EFI Application from Boot Option"),
@@ -203,7 +203,7 @@ pub fn measure_rtmr1_from_qcow2(qcow2_path: &str) -> Result<Vec<u8>> {
 
 /// Measures RTMR2 using actual MOK variable data extracted from shim
 pub fn measure_rtmr2_from_qcow2(qcow2_path: &str, cmdline: &str, ref_mok_list: &str, ref_mok_list_trusted: &str, ref_mok_list_x: &str) -> Result<Vec<u8>> {
-    
+
     // Extract reference MOK variables
     let ref_mok_list_data = read_file_data(ref_mok_list)?;
     let ref_mok_list_trusted_data = read_file_data(ref_mok_list_trusted)?;

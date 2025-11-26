@@ -47,7 +47,7 @@ struct PathResolver {
     paths: PathStorage,
 }
 
-struct PathStorage {    
+struct PathStorage {
     cpu_count: u8,
     memory_size: u64,
     firmware: String,
@@ -71,7 +71,7 @@ struct PathStorage {
 impl PathResolver {
     fn new(metadata_path: &Path, image_config: &ImageConfig, require_boot_config: bool) -> Result<Self> {
         let parent_dir = metadata_path.parent().unwrap_or(".".as_ref());
-        
+
         // Handle optional boot_config
         let paths = if let Some(boot_config) = &image_config.boot_config {
             PathStorage {
@@ -116,10 +116,10 @@ impl PathResolver {
                 sbat_level: image_config.indirect_boot().map(|i| parent_dir.join(&i.sbat_level).display().to_string()),
             }
         };
-        
+
         Ok(Self { paths })
     }
-    
+
     fn build_machine(&self, config: &Cli, direct_boot: bool) -> Machine {
         Machine::builder()
             .cpu_count(self.paths.cpu_count)
@@ -153,7 +153,7 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
     if !config.platform_only { // If platform only, skip boot mode validation
         // Determine boot mode: CLI flag overrides JSON configuration
         direct_boot = config.direct_boot.unwrap_or(image_config.is_direct_boot());
-        
+
         // Validate boot mode configuration
         match (direct_boot, image_config.direct_boot(), image_config.indirect_boot()) {
             (true, None, _) => return Err(anyhow!("Direct boot mode specified but no direct boot configuration found in JSON")),
@@ -161,7 +161,7 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
             _ => {}
         }
     }
-    
+
     // Build machine
     let path_resolver = PathResolver::new(&config.metadata, image_config, !config.runtime_only)?;
     let machine = path_resolver.build_machine(config, direct_boot);
@@ -170,7 +170,7 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
     if let Some(ref transcript_file) = config.transcript {
         return generate_transcript(transcript_file, &path_resolver, direct_boot, config.platform_only, config.runtime_only);
     }
-    
+
     // Measure
     let measurements = if config.platform_only {
         machine.measure_platform().context("Failed to measure platform")?
@@ -179,16 +179,16 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
     } else {
         machine.measure().context("Failed to measure machine configuration")?
     };
-    
+
     // Output results
     output_measurements(config, &measurements)?;
-    
+
     Ok(())
 }
 
 fn output_measurements(config: &Cli, measurements: &tdx_measure::TdxMeasurements) -> Result<()> {
     let json_output = serde_json::to_string_pretty(measurements).unwrap();
-    
+
     if config.json {
         println!("{}", json_output);
     } else {
@@ -198,12 +198,12 @@ fn output_measurements(config: &Cli, measurements: &tdx_measure::TdxMeasurements
         println!("RTMR1: {}", hex::encode(&measurements.rtmr1));
         println!("RTMR2: {}", hex::encode(&measurements.rtmr2));
     }
-    
+
     if let Some(ref json_file) = config.json_file {
         fs::write(json_file, json_output)
             .context("Failed to write measurements to file")?;
     }
-    
+
     Ok(())
 }
 
@@ -215,7 +215,7 @@ fn main() -> Result<()> {
         .context("Failed to read image metadata")?;
     let image_config: ImageConfig = serde_json::from_str(&metadata)
         .context("Failed to parse image metadata")?;
-    
+
     process_measurements(&cli, &image_config)?;
 
     Ok(())

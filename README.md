@@ -125,7 +125,7 @@ TDX attestation reports expose 4 measurement registers (MR).
 
 The first one, `MRTD`, represent the measurements for the TD virtual firmware binary (TDVF, specifically OVMF.fd in our case).
 
-Three other runtime measurement registers (`RTMR`) correspond to different boot stages and vary depending on the boot chain. 
+Three other runtime measurement registers (`RTMR`) correspond to different boot stages and vary depending on the boot chain.
 
 `RTMR[0]` contains firmware configuration and platform specific measurements. This includes hashes of:
 - The TD HOB which mostly contains a description of the memory accessible to the TD.
@@ -138,4 +138,3 @@ Three other runtime measurement registers (`RTMR`) correspond to different boot 
 `RTMR[1]` contains measurements of the `kernel` for direct boot. For indirect boot, it contains measurement for the bootchain a.k.a. `gpt` (GUID Partition Table), `shim`, and `grub`.
 
 `RTMR[2]` contains measurements of the kernel `cmdline` and `initrd` for direct boot. For indirect boot, it also contains the measurements of machine owner key [(MOK) vairables](https://github.com/rhboot/shim/blob/main/MokVars.txt).
-
