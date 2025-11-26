@@ -67,19 +67,19 @@ fn measure_tdx_efi_variable(vendor_guid: &str, var_name: &str, var_data: Option<
     let mut data = Vec::new();
     data.extend_from_slice(&encode_guid(vendor_guid)?);
     data.extend_from_slice(&(var_name.len() as u64).to_le_bytes());
-    
+
     // Include variable data size
     let data_size = var_data.map_or(0, |d| d.len()) as u64;
     data.extend_from_slice(&data_size.to_le_bytes());
-    
+
     // Add variable name (UTF-16 encoded)
     data.extend(utf16_encode(var_name));
-    
+
     // Add variable data if present
     if let Some(var_data) = var_data {
         data.extend_from_slice(var_data);
     }
-    
+
     Ok(measure_sha384(&data))
 }
 
@@ -88,13 +88,13 @@ fn parse_boot_order(boot_order_data: &[u8]) -> Result<Vec<u16>> {
     if boot_order_data.len() % 2 != 0 {
         bail!("BootOrder data length must be even (array of UINT16s)");
     }
-    
+
     let mut boot_entries = Vec::new();
     for chunk in boot_order_data.chunks(2) {
         let entry_num = u16::from_le_bytes([chunk[0], chunk[1]]);
         boot_entries.push(entry_num);
     }
-    
+
     Ok(boot_entries)
 }
 
@@ -270,10 +270,10 @@ impl<'a> Tdvf<'a> {
 
         // Hash of the Configuration Firmware Volume (default OVMF_VARS.fd in our case).
         let cfv_image_hash = hex!("344BC51C980BA621AAA00DA3ED7436F7D6E549197DFE699515DFA2C6583D95E6412AF21C097D473155875FFD561D6790");
-        
+
         // Load boot variable data from files
         let boot_order_data = read_file_data(machine.boot_order)?;
-        
+
         // Parse BootOrder to determine which boot variables to measure
         let boot_entries = parse_boot_order(&boot_order_data)?;
 

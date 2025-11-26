@@ -99,7 +99,7 @@ pub(crate) fn measure_rtmr1_direct(
     let kernel_data = fs::read(kernel_path).context("Failed to read kernel file")?;
     let initrd_data = fs::read(initrd_path).context("Failed to read initrd file")?;
     let initrd_size = initrd_data.len() as u32;
-    
+
     // Patch kernel to mimic QEMU's behavior
     let kd = patch_kernel(&kernel_data, initrd_size, mem_size, acpi_data_size)
         .context("Failed to patch kernel")?;
