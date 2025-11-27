@@ -38,8 +38,8 @@ pub struct BootConfig {
     pub memory: String,
     pub bios: String,
     pub acpi_tables: String,
-    pub rsdp: String,
-    pub table_loader: String,
+    pub rsdp: Option<String>,
+    pub table_loader: Option<String>,
     pub boot_order: String,
     pub path_boot_xxxx: String,
 }
