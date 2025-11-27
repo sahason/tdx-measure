@@ -48,9 +48,7 @@ Create `metadata.json` file with the below metadata:
     "bios": "[path to OVMF.fd]",
     "acpi_tables": "[path to acpi_tables.bin]",
     "rsdp": "[path to rsdp.bin]",
-    "table_loader": "[path to table_loader.bin]",
-    "boot_order": "[path to BootOrder.bin]",
-    "path_boot_xxxx": "[path to directory containing Bootxxxx.bin files]"
+    "table_loader": "[path to table_loader.bin]"
   },
   "direct": {
     "kernel": "[path to vmlinuz]",
@@ -80,11 +78,6 @@ Create `metadata.json` file with the below metadata:
     In this case, this flag is not needed.
     Alternatively, a file containing the RSDP can be extracted by running the [`extract_config_files.py`](extract_config_files.py) script inside a TD, which is configured identically to the target configuration.
     In this case, the extracted file can be provided with this flag.
-  - `boot_order`: Path to file containing a UEFI BootOrder variable, which specifies the order in which the firmware attempts to boot from different boot options.
-    The file can be extracted by running the [`extract_config_files.py`](extract_config_files.py) script inside a TD, which is configured identically to the target configuration.
-  - `path_boot_xxxx`: Path to directory containing files (e.g., `Boot0000.bin`, `Boot0001.bin`, `Boot0002.bin`) for each Boot#### UEFI variables.
-    Each variable defines a specific boot option with its device path and description.
-    These files can be extracted by running the [`extract_config_files.py`](extract_config_files.py) script inside a TD, which is configured identically to the target configuration.
 
 - `direct`: Direct boot specific configuration used to compute RTMR[1] and RTMR[2]
   - `kernel`: Path to file (e.g., `vmlinuz`) of kernel image, which will be directly loaded and executed by OVMF.
@@ -93,6 +86,9 @@ Create `metadata.json` file with the below metadata:
     The file can be obtain by following the [these instructions](https://github.com/canonical/tdx/tree/main/guest-tools/direct-boot#prerequisites).
   - `cmdline`: Kernel command line parameters.
     These parameters specify the kernel command line arguments that are passed to QEMU using the `-append` option.
+
+Note: For direct boot, `boot_order` and `path_boot_xxxx` do not need to be specified in the metadata file, as there is only one standardized BootOrder variable and a corresponding Boot#### UEFI variable.
+These are calculated by the tool automatically.
 
 ### Indirect Boot
 

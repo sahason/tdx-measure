@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Context, Result};
-use hex_literal::hex;
 use sha2::{Digest, Sha384};
 
 use crate::num::read_le;
@@ -79,19 +78,32 @@ fn measure_tdx_efi_variable(vendor_guid: &str, var_name: &str, var_data: Option<
     Ok(measure_sha384(&data))
 }
 
-/// Parses BootOrder variable to extract boot entry numbers
-fn parse_boot_order(boot_order_data: &[u8]) -> Result<Vec<u16>> {
-    if boot_order_data.len() % 2 != 0 {
-        bail!("BootOrder data length must be even (array of UINT16s)");
-    }
+/// Loads boot order data and parses boot entry numbers based on boot mode.
+/// For direct boot, returns a simulated boot order with no boot entries.
+/// For indirect boot, reads the boot order file and extracts the list of boot entry numbers.
+fn parse_boot_order(machine: &Machine) -> Result<(Vec<u8>, Vec<u16>)> {
+    if machine.direct_boot {
+        // Direct boot: simulated boot order data
+        Ok((vec![0, 0], Vec::new()))
+    } else if !machine.boot_order.is_empty() {
+        // Indirect boot: read and parse the boot order file
+        let boot_order_data = read_file_data(machine.boot_order)?;
 
-    let mut boot_entries = Vec::new();
-    for chunk in boot_order_data.chunks(2) {
-        let entry_num = u16::from_le_bytes([chunk[0], chunk[1]]);
-        boot_entries.push(entry_num);
-    }
+        // Validate and parse boot order data
+        if boot_order_data.len() % 2 != 0 {
+            bail!("BootOrder data length must be even (array of UINT16s)");
+        }
 
-    Ok(boot_entries)
+        let mut boot_entries = Vec::new();
+        for chunk in boot_order_data.chunks(2) {
+            let entry_num = u16::from_le_bytes([chunk[0], chunk[1]]);
+            boot_entries.push(entry_num);
+        }
+
+        Ok((boot_order_data, boot_entries))
+    } else {
+        Err(anyhow!("Boot order file is required for indirect boot"))
+    }
 }
 
 /// Loads boot variable data if the corresponding file exists
@@ -249,17 +261,14 @@ impl<'a> Tdvf<'a> {
         // Calculate measurement of the Configuration Firmware Volume (CFV)
         let cfv_hash = self.measure_cfv().context("Failed to find CFV section")?;
 
-        // Load boot variable data from files
-        let boot_order_data = read_file_data(machine.boot_order)?;
-
-        // Parse BootOrder to determine which boot variables to measure
-        let boot_entries = parse_boot_order(&boot_order_data)?;
-
         // Build ACPI tables
         let tables = machine.build_tables()?;
         let acpi_tables_hash = measure_sha384(&tables.tables);
         let acpi_rsdp_hash = measure_sha384(&tables.rsdp);
         let acpi_loader_hash = measure_sha384(&tables.loader);
+
+        // Load boot order data and entries
+        let (boot_order_data, boot_entries) = parse_boot_order(machine)?;
 
         // Compute RTMR0 log
         let mut rtmr0_log = vec![
@@ -277,10 +286,16 @@ impl<'a> Tdvf<'a> {
             measure_sha384(&boot_order_data), // Always measure BootOrder itself
         ];
 
-        // Dynamically add boot variable measurements based on BootOrder
-        for boot_entry_num in boot_entries {
-            if let Some(boot_data) = load_boot_variable_if_exists(boot_entry_num, machine)? {
-                rtmr0_log.push(measure_sha384(&boot_data));
+        if machine.direct_boot {
+            // Boot0000 data for direct boot mode
+            let boot0000_hex = "090100002c0055006900410070007000000004071400c9bdb87cebf8344faaea3ee4af6516a10406140021aa2c4614760345836e8ab6f46623317fff0400";
+            let boot0000 = hex::decode(boot0000_hex).context("Failed to decode boot0000 hex string")?;
+            rtmr0_log.push(measure_sha384(&boot0000));
+        } else {
+            for boot_entry_num in boot_entries {
+                if let Some(boot_data) = load_boot_variable_if_exists(boot_entry_num, machine)? {
+                    rtmr0_log.push(measure_sha384(&boot_data));
+                }
             }
         }
 

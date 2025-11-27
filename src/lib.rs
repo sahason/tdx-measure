@@ -40,8 +40,8 @@ pub struct BootConfig {
     pub acpi_tables: String,
     pub rsdp: Option<String>,
     pub table_loader: Option<String>,
-    pub boot_order: String,
-    pub path_boot_xxxx: String,
+    pub boot_order: Option<String>,
+    pub path_boot_xxxx: Option<String>,
 }
 
 /// Direct boot specific information

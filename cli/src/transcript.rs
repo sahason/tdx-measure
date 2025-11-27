@@ -19,7 +19,7 @@ pub fn generate_transcript(output_file: &Path, path_resolver: &PathResolver, dir
         write_acpi_tables_with_iasl(&mut output, &path_resolver.paths.acpi_tables)?;
 
         // Display boot order and boot variables
-        write_boot_variables(&mut output, &path_resolver.paths)?;
+        write_boot_variables(&mut output, &path_resolver.paths, direct_boot)?;
     }
 
     if !platform_only {
@@ -605,32 +605,45 @@ fn format_load_option_attributes(attributes: u32) -> String {
 }
 
 /// Write boot variables with pretty printing and hex dumps
-fn write_boot_variables(output: &mut Vec<u8>, paths: &PathStorage) -> Result<()> {
+fn write_boot_variables(output: &mut Vec<u8>, paths: &PathStorage, direct_boot: bool) -> Result<()> {
     writeln!(output, "=== Boot Variables ===").unwrap();
     writeln!(output, "These are UEFI boot variables that control the boot process.").unwrap();
     writeln!(output, "Reference: UEFI Specification 2.10+ Chapter 3: Boot Manager").unwrap();
     writeln!(output).unwrap();
 
     // Parse and display BootOrder
-    let boot_entries = write_boot_order_analysis(output, &paths.boot_order)?;
+    let boot_entries = write_boot_order_analysis(output, &paths.boot_order.as_deref().unwrap_or(""), direct_boot)?;
 
     // Parse and display Boot#### variables
-    for boot_entry in boot_entries {
-        let name = format!("Boot{:04X}", boot_entry);
-        let path = format!("{}/{}.bin", paths.path_boot_xxxx, name);
-        write_boot_option_analysis(output, &name, &path)?;
-    }
 
+    if direct_boot {
+        // Boot0000 data for direct boot mode
+        let boot0000_hex = "090100002c0055006900410070007000000004071400c9bdb87cebf8344faaea3ee4af6516a10406140021aa2c4614760345836e8ab6f46623317fff0400";
+        let boot0000 = hex::decode(boot0000_hex).context("Failed to decode boot0000 hex string")?;
+        write_boot_option_analysis(output, "Boot0000", &boot0000)?;
+    } else {
+        for boot_entry in boot_entries {
+            let name = format!("Boot{:04X}", boot_entry);
+            let path = format!("{}/{}.bin", paths.path_boot_xxxx.as_deref().unwrap_or(""), name);
+            let data = fs::read(&path)
+                .with_context(|| format!("Failed to read {} from {}", name, path))?;
+            write_boot_option_analysis(output, &name, &data)?;
+        }
+    }
     writeln!(output).unwrap();
     Ok(())
 }
 
 /// Write BootOrder analysis with pretty printing
-fn write_boot_order_analysis(output: &mut Vec<u8>, boot_order_path: &str) -> Result<Vec<u16>> {
+fn write_boot_order_analysis(output: &mut Vec<u8>, boot_order_path: &str, direct_boot: bool) -> Result<Vec<u16>> {
     writeln!(output, "--- BootOrder Analysis ---").unwrap();
 
-    let data = fs::read(boot_order_path)
-        .with_context(|| format!("Failed to read BootOrder from {}", boot_order_path))?;
+    let data = if direct_boot {
+        vec![0, 0]
+    } else {
+        fs::read(boot_order_path)
+            .with_context(|| format!("Failed to read BootOrder from {}", boot_order_path))?
+    };
 
     // Parse BootOrder first
     let boot_order = match parse_boot_order(&data) {
@@ -652,17 +665,18 @@ fn write_boot_order_analysis(output: &mut Vec<u8>, boot_order_path: &str) -> Res
     writeln!(output).unwrap();
 
     // Also include hex dump
-    write_hex_dump(output, boot_order_path, "BootOrder (hex dump)")?;
+    if direct_boot {
+        write_raw_hex_dump(output, &data, "BootOrder (hex dump)")?;
+    } else {
+        write_hex_dump(output, boot_order_path, "BootOrder (hex dump)")?;
+    }
 
     Ok(boot_order)
 }
 
 /// Write Boot#### variable analysis with pretty printing
-fn write_boot_option_analysis(output: &mut Vec<u8>, name: &str, boot_path: &str) -> Result<()> {
+fn write_boot_option_analysis(output: &mut Vec<u8>, name: &str, data: &[u8]) -> Result<()> {
     writeln!(output, "--- {} Analysis ---", name).unwrap();
-
-    let data = fs::read(boot_path)
-        .with_context(|| format!("Failed to read {} from {}", name, boot_path))?;
 
     if data.is_empty() {
         writeln!(output, "{} is empty", name).unwrap();
@@ -705,7 +719,7 @@ fn write_boot_option_analysis(output: &mut Vec<u8>, name: &str, boot_path: &str)
     writeln!(output).unwrap();
 
     // Also include hex dump
-    write_hex_dump(output, boot_path, &format!("{} (hex dump)", name))?;
+    write_raw_hex_dump(output, data, &format!("{} (hex dump)", name))?;
 
     Ok(())
 }
@@ -760,6 +774,12 @@ fn write_hex_dump(output: &mut Vec<u8>, file_path: &str, name: &str) -> Result<(
     let data = fs::read(file_path)
         .with_context(|| format!("Failed to read file: {}", file_path))?;
 
+    write_raw_hex_dump(output, &data, name)?;
+
+    Ok(())
+}
+
+fn write_raw_hex_dump(output: &mut Vec<u8>, data: &[u8], name: &str) -> Result<()> {
     writeln!(output, "{} ({} bytes):", name, data.len()).unwrap();
 
     if data.is_empty() {
