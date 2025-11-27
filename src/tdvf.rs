@@ -12,6 +12,7 @@ const MR_EXTEND_GRANULARITY: usize = 0x100;
 const ATTRIBUTE_MR_EXTEND: u32 = 0x00000001;
 const ATTRIBUTE_PAGE_AUG: u32 = 0x00000002;
 
+const TDVF_SECTION_TD_CFV: u32 = 0x01;
 const TDVF_SECTION_TD_HOB: u32 = 0x02;
 const TDVF_SECTION_TEMP_MEM: u32 = 0x03;
 
@@ -242,10 +243,11 @@ impl<'a> Tdvf<'a> {
     }
 
     pub fn rtmr0(&self, machine: &Machine) -> Result<Vec<u8>> {
+        // Calculate measurement of the TD Hand-Off Block (TD-HOB)
         let td_hob_hash = self.measure_td_hob(machine.memory_size)?;
 
-        // Hash of the Configuration Firmware Volume (default OVMF_VARS.fd in our case).
-        let cfv_image_hash = hex!("344BC51C980BA621AAA00DA3ED7436F7D6E549197DFE699515DFA2C6583D95E6412AF21C097D473155875FFD561D6790");
+        // Calculate measurement of the Configuration Firmware Volume (CFV)
+        let cfv_hash = self.measure_cfv().context("Failed to find CFV section")?;
 
         // Load boot variable data from files
         let boot_order_data = read_file_data(machine.boot_order)?;
@@ -262,7 +264,7 @@ impl<'a> Tdvf<'a> {
         // Compute RTMR0 log
         let mut rtmr0_log = vec![
             td_hob_hash,
-            cfv_image_hash.to_vec(),
+            cfv_hash,
             measure_tdx_efi_variable("8BE4DF61-93CA-11D2-AA0D-00E098032B8C", "SecureBoot", None)?,
             measure_tdx_efi_variable("8BE4DF61-93CA-11D2-AA0D-00E098032B8C", "PK", None)?,
             measure_tdx_efi_variable("8BE4DF61-93CA-11D2-AA0D-00E098032B8C", "KEK", None)?,
@@ -349,6 +351,23 @@ impl<'a> Tdvf<'a> {
         td_hob[48..56].copy_from_slice(&end_of_hob_list.to_le_bytes());
 
         Ok(measure_sha384(&td_hob))
+    }
+
+    fn measure_cfv(&self) -> Result<Vec<u8>> {
+        for section in &self.sections {
+            if section.sec_type == TDVF_SECTION_TD_CFV {
+                let start = section.data_offset as usize;
+                let end = start + section.raw_data_size as usize;
+
+                if end > self.fw.len() {
+                    return Err(anyhow!("CFV section extends beyond firmware data."));
+                }
+
+                return Ok(measure_sha384(&self.fw[start..end]));
+            }
+        }
+
+        Err(anyhow!("CFV section does not exist."))
     }
 }
 
