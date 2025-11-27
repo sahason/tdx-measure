@@ -59,8 +59,8 @@ struct PathStorage {
     acpi_tables: String,
     rsdp: Option<String>,
     table_loader: Option<String>,
-    boot_order: String,
-    path_boot_xxxx: String,
+    boot_order: Option<String>,
+    path_boot_xxxx: Option<String>,
     // Direct boot specific
     kernel: Option<String>,
     initrd: Option<String>,
@@ -86,8 +86,8 @@ impl PathResolver {
                 acpi_tables: parent_dir.join(&boot_config.acpi_tables).display().to_string(),
                 rsdp: boot_config.rsdp.as_ref().map(|p| parent_dir.join(p).display().to_string()),
                 table_loader: boot_config.table_loader.as_ref().map(|p| parent_dir.join(p).display().to_string()),
-                boot_order: parent_dir.join(&boot_config.boot_order).display().to_string(),
-                path_boot_xxxx: parent_dir.join(&boot_config.path_boot_xxxx).display().to_string(),
+                boot_order: boot_config.boot_order.as_ref().map(|p| parent_dir.join(p).display().to_string()),
+                path_boot_xxxx: boot_config.path_boot_xxxx.as_ref().map(|p| parent_dir.join(p).display().to_string()),
                 kernel: image_config.direct_boot().map(|d| parent_dir.join(&d.kernel).display().to_string()),
                 initrd: image_config.direct_boot().map(|d| parent_dir.join(&d.initrd).display().to_string()),
                 qcow2: image_config.indirect_boot().map(|i| parent_dir.join(&i.qcow2).display().to_string()),
@@ -109,8 +109,8 @@ impl PathResolver {
                 acpi_tables: String::new(),
                 rsdp: None,
                 table_loader: None,
-                boot_order: String::new(),
-                path_boot_xxxx: String::new(),
+                boot_order: None,
+                path_boot_xxxx: None,
                 kernel: image_config.direct_boot().map(|d| parent_dir.join(&d.kernel).display().to_string()),
                 initrd: image_config.direct_boot().map(|d| parent_dir.join(&d.initrd).display().to_string()),
                 qcow2: image_config.indirect_boot().map(|i| parent_dir.join(&i.qcow2).display().to_string()),
@@ -133,8 +133,8 @@ impl PathResolver {
             .acpi_tables(&self.paths.acpi_tables)
             .rsdp(self.paths.rsdp.as_deref().unwrap_or(""))
             .table_loader(self.paths.table_loader.as_deref().unwrap_or(""))
-            .boot_order(&self.paths.boot_order)
-            .path_boot_xxxx(&self.paths.path_boot_xxxx)
+            .boot_order(self.paths.boot_order.as_deref().unwrap_or(""))
+            .path_boot_xxxx(self.paths.path_boot_xxxx.as_deref().unwrap_or(""))
             .kernel(self.paths.kernel.as_deref().unwrap_or(""))
             .initrd(self.paths.initrd.as_deref().unwrap_or(""))
             .qcow2(self.paths.qcow2.as_deref().unwrap_or(""))
