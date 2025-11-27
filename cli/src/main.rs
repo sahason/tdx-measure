@@ -3,9 +3,13 @@ use clap::Parser;
 use tdx_measure::{Machine, ImageConfig};
 use fs_err as fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 mod transcript;
 use transcript::generate_transcript;
+
+const CREATE_ACPI_TABLES_SCRIPT: &str = include_str!("../../create_acpi_tables.sh");
+const DOCKERFILE_QEMU_ACPI_DUMP: &str = include_str!("../../Dockerfile.qemu-acpi-dump");
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -36,6 +40,10 @@ struct Cli {
     /// Generate a human-readable transcript of all metadata files and write to the specified file
     #[arg(long)]
     transcript: Option<PathBuf>,
+
+    /// Generate ACPI tables for direct boot and a specific distribution, e.g., ubuntu:25.04
+    #[arg(long)]
+    create_acpi_tables: Option<String>,
 }
 
 /// Helper struct to resolve and store file paths
@@ -49,8 +57,8 @@ struct PathStorage {
     firmware: String,
     cmdline: String,
     acpi_tables: String,
-    rsdp: String,
-    table_loader: String,
+    rsdp: Option<String>,
+    table_loader: Option<String>,
     boot_order: String,
     path_boot_xxxx: String,
     // Direct boot specific
@@ -76,8 +84,8 @@ impl PathResolver {
                 firmware: parent_dir.join(&boot_config.bios).display().to_string(),
                 cmdline: image_config.cmdline().to_string(),
                 acpi_tables: parent_dir.join(&boot_config.acpi_tables).display().to_string(),
-                rsdp: parent_dir.join(&boot_config.rsdp).display().to_string(),
-                table_loader: parent_dir.join(&boot_config.table_loader).display().to_string(),
+                rsdp: boot_config.rsdp.as_ref().map(|p| parent_dir.join(p).display().to_string()),
+                table_loader: boot_config.table_loader.as_ref().map(|p| parent_dir.join(p).display().to_string()),
                 boot_order: parent_dir.join(&boot_config.boot_order).display().to_string(),
                 path_boot_xxxx: parent_dir.join(&boot_config.path_boot_xxxx).display().to_string(),
                 kernel: image_config.direct_boot().map(|d| parent_dir.join(&d.kernel).display().to_string()),
@@ -99,8 +107,8 @@ impl PathResolver {
                 firmware: String::new(),
                 cmdline: image_config.cmdline().to_string(),
                 acpi_tables: String::new(),
-                rsdp: String::new(),
-                table_loader: String::new(),
+                rsdp: None,
+                table_loader: None,
                 boot_order: String::new(),
                 path_boot_xxxx: String::new(),
                 kernel: image_config.direct_boot().map(|d| parent_dir.join(&d.kernel).display().to_string()),
@@ -123,8 +131,8 @@ impl PathResolver {
             .firmware(&self.paths.firmware)
             .kernel_cmdline(&self.paths.cmdline)
             .acpi_tables(&self.paths.acpi_tables)
-            .rsdp(&self.paths.rsdp)
-            .table_loader(&self.paths.table_loader)
+            .rsdp(self.paths.rsdp.as_deref().unwrap_or(""))
+            .table_loader(self.paths.table_loader.as_deref().unwrap_or(""))
             .boot_order(&self.paths.boot_order)
             .path_boot_xxxx(&self.paths.path_boot_xxxx)
             .kernel(self.paths.kernel.as_deref().unwrap_or(""))
@@ -137,6 +145,37 @@ impl PathResolver {
             .direct_boot(direct_boot)
             .build()
     }
+}
+
+fn generate_acpi_tables(metadata_path: &Path, distribution: &str) -> Result<()> {
+    let tmp_dir = std::env::temp_dir();
+
+    // Write the embedded script to a temporary file
+    let script_path = tmp_dir.join("create_acpi_tables.sh");
+    std::fs::write(&script_path, CREATE_ACPI_TABLES_SCRIPT)
+        .context("Failed to write create_acpi_tables.sh to temporary directory")?;
+
+    // Write the embedded Dockerfile to a temporary file
+    let dockerfile_path = tmp_dir.join("Dockerfile.qemu-acpi-dump");
+    std::fs::write(&dockerfile_path, DOCKERFILE_QEMU_ACPI_DUMP)
+        .context("Failed to write Dockerfile.qemu-acpi-dump to temporary directory")?;
+
+    // Call dedicated bash script to create ACPI tables.
+    // TODO: Integrate functionality from bash script into `acpi.rs`.
+    let output = Command::new("bash")
+        .arg(&script_path)
+        .arg("-j")
+        .arg(metadata_path)
+        .arg("-d")
+        .arg(distribution)
+        .output()
+        .context("Failed to execute create_acpi_tables.sh script")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("ACPI table generation failed: {}", stderr));
+    }
+    Ok(())
 }
 
 fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> {
@@ -155,6 +194,15 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
             (false, _, None) => return Err(anyhow!("Indirect boot mode specified but no indirect boot configuration found in JSON")),
             _ => {}
         }
+    }
+
+    // Generate ACPI tables if requested
+    if let Some(ref distribution) = config.create_acpi_tables {
+        if !direct_boot {
+            return Err(anyhow!("--create-acpi-tables flag is only valid with direct boot mode"));
+        }
+
+        generate_acpi_tables(&config.metadata, distribution)?;
     }
 
     // Build machine
