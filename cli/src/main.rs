@@ -13,10 +13,6 @@ struct Cli {
     /// Path to metadata json file
     metadata: PathBuf,
 
-    /// Enable two-pass add pages
-    #[arg(long)]
-    two_pass_add_pages: bool,
-
     /// Enable direct boot (overrides JSON configuration)
     #[arg(long)]
     direct_boot: Option<bool>,
@@ -120,7 +116,7 @@ impl PathResolver {
         Ok(Self { paths })
     }
 
-    fn build_machine(&self, config: &Cli, direct_boot: bool) -> Machine {
+    fn build_machine(&self, direct_boot: bool) -> Machine<'_> {
         Machine::builder()
             .cpu_count(self.paths.cpu_count)
             .memory_size(self.paths.memory_size)
@@ -138,7 +134,6 @@ impl PathResolver {
             .mok_list_trusted(self.paths.mok_list_trusted.as_deref().unwrap_or(""))
             .mok_list_x(self.paths.mok_list_x.as_deref().unwrap_or(""))
             .sbat_level(self.paths.sbat_level.as_deref().unwrap_or(""))
-            .two_pass_add_pages(config.two_pass_add_pages)
             .direct_boot(direct_boot)
             .build()
     }
@@ -164,7 +159,7 @@ fn process_measurements(config: &Cli, image_config: &ImageConfig) -> Result<()> 
 
     // Build machine
     let path_resolver = PathResolver::new(&config.metadata, image_config, !config.runtime_only)?;
-    let machine = path_resolver.build_machine(config, direct_boot);
+    let machine = path_resolver.build_machine(direct_boot);
 
     // Generate transcript
     if let Some(ref transcript_file) = config.transcript {

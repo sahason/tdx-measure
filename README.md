@@ -5,7 +5,9 @@ Command-line tool and Rust library to calculate expected measurement of an Intel
 
 The `tdx-measure` tool takes a set of image binaries and platform config files as an input and outputs the corresponding TDX measurements. This makes it possible to exhaustively publish all images and config files that uniquely identify a TDX workload on a machine, making TD environments transparent and auditable.
 
-The tool specifically targets the boot chains from the Canonical TDX [repo](https://github.com/canonical/tdx).
+Currently, the tool is able to pre-calculate measurements for the boot chains from the Canonical's Intel TDX [repo](https://github.com/canonical/tdx).
+In particular, the measurement calculation was validated for TDs using Ubuntu 25.04 as guest OS running on Ubuntu 25.04 as host OS.
+The building and execution of `tdx-measure` was validated on Ubuntu 25.04.
 
 ### Acknowledgment
 This project is a fork of dstack-mr from the [Dstack-TEE/dstack](https://github.com/Dstack-TEE/dstack) repository.
@@ -19,7 +21,6 @@ This project is a fork of dstack-mr from the [Dstack-TEE/dstack](https://github.
 
 ### Options
 ```
-      --two-pass-add-pages         Enable two-pass add pages
       --direct-boot <DIRECT_BOOT>  Enable direct boot (overrides JSON configuration) [possible values: true, false]
       --json                       Output JSON
       --json-file <JSON_FILE>      Output JSON to file
