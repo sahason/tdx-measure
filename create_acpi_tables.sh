@@ -147,6 +147,10 @@ parse_metadata() {
         exit 1
     fi
 
+    # Get the directory containing the metadata file for resolving relative paths
+    local metadata_dir
+    metadata_dir="$(cd "$(dirname "$METADATA_JSON_PATH")" && pwd)"
+
     # Read settings from metadata JSON file
     local has_errors=false
     extract_and_validate CPUS             '.boot_config.cpus'          || has_errors=true
@@ -162,6 +166,12 @@ parse_metadata() {
         exit 1
     fi
 
+    # Resolve paths relative to metadata.json location (if not already absolute)
+    [[ "$BIOS" != /* ]] && BIOS="$metadata_dir/$BIOS"
+    [[ "$ACPI_TABLES_PATH" != /* ]] && ACPI_TABLES_PATH="$metadata_dir/$ACPI_TABLES_PATH"
+    [[ "$KERNEL" != /* ]] && KERNEL="$metadata_dir/$KERNEL"
+    [[ "$INITRD" != /* ]] && INITRD="$metadata_dir/$INITRD"
+
     # Check if target directory for ACPI tables exists
     if [[ ! -d "$(dirname "$ACPI_TABLES_PATH")" ]]; then
         log_error "Target directory for ACPI tables does not exist: $(dirname "$ACPI_TABLES_PATH")"
@@ -169,6 +179,9 @@ parse_metadata() {
     fi
 
     ACPI_TABLES_PATH="$(realpath "$ACPI_TABLES_PATH")"
+    BIOS="$(realpath "$BIOS")"
+    KERNEL="$(realpath "$KERNEL")"
+    INITRD="$(realpath "$INITRD")"
 
     # Validate that provided BIOS, kernel, and initrd files exist
     local file_path
