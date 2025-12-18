@@ -178,7 +178,7 @@ See [Rust's installation documentation](https://www.rust-lang.org/tools/install)
 ### Install jq
 
 > [!NOTE]
-> This prerequisite is only required for measurement calculations in direct boot mode.
+> This prerequisite is only required when generating ACPI tables in Direct Mode with `--create-acpi-tables`.
 
 [If not already done] Install jq with the following command:
 ```
@@ -188,7 +188,7 @@ sudo apt-get install jq
 ### Install Docker
 
 > [!NOTE]
-> This prerequisite is only required for measurement calculations in direct boot mode.
+> This prerequisite is only required when generating ACPI tables in Direct Mode with `--create-acpi-tables`.
 
 > [!NOTE]
 > See [Docker's installation documentation](https://docs.docker.com/engine/install/ubuntu/) and [Docker's post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/) for more detailed information.
