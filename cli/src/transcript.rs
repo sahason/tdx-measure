@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Tinfoil Inc
+ * Copyright (c) 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 use std::io::Write;
